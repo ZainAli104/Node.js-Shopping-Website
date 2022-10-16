@@ -1,7 +1,7 @@
 const getDb = require("../util/database").getDb;
 
 class Product {
-  constructor(title, price, description, imageUrl) {
+  constructor(title, price, description, imageUrl) { //https://res.freestockphotos.biz/pictures/14/14342-illustration-of-a-book-pv.png
     this.title = title;
     this.price = price;
     this.description = description;
@@ -18,6 +18,21 @@ class Product {
       .catch(err => {
         console.log(err);
       });
+  }
+
+  static fetch() {
+    const db = getDb()
+    return db
+      .collection('products')
+      .find()
+      .toArray()
+      .then(products => {
+        console.log(products);
+        return products;
+      })
+      .catch(err => {
+        console.log(err);
+      })
   }
 }
 
