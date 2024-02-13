@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const bcrypt = require("bcryptjs");
 const nodemailer = require('nodemailer');
 const sendGridTransport = require('nodemailer-sendgrid-transport');
+const {validationResult} = require('express-validator');
 require('dotenv').config();
 
 const User = require('../models/user');
@@ -18,7 +19,12 @@ exports.getLogin = (req, res, next) => {
     res.render('auth/login', {
         path: '/login',
         pageTitle: 'Login',
-        errorMessage: message
+        errorMessage: message,
+        oldInput: {
+            email: "",
+            password: ""
+        },
+        validationErrors: []
     });
 };
 
@@ -33,13 +39,33 @@ exports.getSignup = (req, res, next) => {
     res.render('auth/signup', {
         path: '/signup',
         pageTitle: 'Signup',
-        errorMessage: message
+        errorMessage: message,
+        oldInput: {
+            email: "",
+            password: "",
+            confirmPassword: ""
+        },
+        validationErrors: []
     });
 };
 
 exports.postLogin = (req, res, next) => {
     const email = req.body.email;
     const password = req.body.password;
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).render('auth/login', {
+            path: '/login',
+            pageTitle: 'Login',
+            errorMessage: errors.array()[0].msg,
+            oldInput: {
+                email: email,
+                password: password
+            },
+            validationErrors: errors.array()
+        });
+    }
 
     User.findOne({email: email})
         .then(user => {
@@ -74,7 +100,21 @@ exports.postLogin = (req, res, next) => {
 exports.postSignup = (req, res, next) => {
     const email = req.body.email;
     const password = req.body.password;
-    const confirmPassword = req.body.confirmPassword;
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(422).render('auth/signup', {
+            path: '/signup',
+            pageTitle: 'Signup',
+            errorMessage: errors.array()[0].msg,
+            oldInput: {
+                email: email,
+                password: password,
+                confirmPassword: req.body.confirmPassword
+            },
+            validationErrors: errors.array()
+        });
+    }
 
     User.findOne({email: email})
         .then(userDoc => {
@@ -93,24 +133,24 @@ exports.postSignup = (req, res, next) => {
                     return user.save()
                 })
         })
-        .then(result => {
-            // res.redirect('/login')
-
-            const transporter = nodemailer.createTransport(
-                sendGridTransport({
-                    auth: {
-                        api_key: process.env.SENDGRID_API_KEY
-                    }
-                })
-            );
-
-            return transporter.sendMail({
-                to: email,
-                from: 'support@shouldirenovate.com',
-                subject: 'Signup Succeeded!',
-                html: '<h1>You successfully signed up!</h1>'
-            });
-        })
+        // .then(result => {
+        //     // res.redirect('/login')
+        //
+        //     const transporter = nodemailer.createTransport(
+        //         sendGridTransport({
+        //             auth: {
+        //                 api_key: process.env.SENDGRID_API_KEY
+        //             }
+        //         })
+        //     );
+        //
+        //     return transporter.sendMail({
+        //         to: email,
+        //         from: 'support@shouldirenovate.com',
+        //         subject: 'Signup Succeeded!',
+        //         html: '<h1>You successfully signed up!</h1>'
+        //     });
+        // })
         .then(() => {
             res.redirect('/login')
         })
@@ -194,7 +234,7 @@ exports.getNewPassword = (req, res, next) => {
 
     User.findOne({
         resetToken: token,
-        resetTokenExpiration: { $gt: Date.now() }
+        resetTokenExpiration: {$gt: Date.now()}
     })
         .then((user) => {
             let message = req.flash('error');
@@ -225,7 +265,7 @@ exports.postNewPassword = (req, res, next) => {
 
     User.findOne({
         resetToken: passwordToken,
-        resetTokenExpiration: { $gt: Date.now() },
+        resetTokenExpiration: {$gt: Date.now()},
         _id: userId
     })
         .then(user => {
